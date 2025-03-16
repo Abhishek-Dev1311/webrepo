@@ -1,9 +1,9 @@
-name: Deploy Nginx Hello World
+name: Deploy Nginx to AWS
 
 on:
   push:
     branches:
-      - main
+      - main  # Runs only when pushing to the main branch
 
 jobs:
   deploy:
@@ -13,19 +13,29 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Install Nginx
-        run: |
-          sudo apt update
-          sudo apt install -y nginx
+      - name: Setup SSH and Deploy Nginx
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          script: |
+            # Update system and install Nginx
+            sudo apt update -y
+            sudo apt install nginx -y
+            
+            # Start and enable Nginx
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+            
+            # Create a simple HTML file
+            echo "<h1>Hello from Nginx on AWS EC2!</h1>" | sudo tee /var/www/html/index.html
+            
+            # Restart Nginx to apply changes
+            sudo systemctl restart nginx
+            
+            # Allow HTTP traffic through firewall
+            sudo ufw allow 'Nginx HTTP'
+            sudo ufw enable
 
-      - name: Create Hello World Page
-        run: |
-          echo '<h1>Hello, World! 🚀</h1>' | sudo tee /var/www/html/index.html
-
-      - name: Start Nginx Service
-        run: |
-          sudo systemctl start nginx
-          sudo systemctl enable nginx
-
-      - name: Verify Nginx is Running
-        run: curl -I http://localhost
+            echo "Nginx deployment completed!"
